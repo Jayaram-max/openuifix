@@ -20,6 +20,8 @@ export interface ToolSpec {
 export interface ComponentPromptSpec {
   signature: string; // pre-built: "Card(children: Component[], title?: string)"
   description?: string;
+  /** Per-prop descriptions (from Zod `.describe()`), keyed by prop name. Rendered under the signature. */
+  propDescriptions?: Record<string, string>;
 }
 
 export interface ComponentGroup {
@@ -558,8 +560,15 @@ function generateComponentSignatures(
     lines.push("Props marked `$binding<type>` accept a `$variable` reference for two-way binding.");
   }
 
-  const formatSig = (comp: { signature: string; description?: string }) =>
-    comp.description ? `${comp.signature} — ${comp.description}` : comp.signature;
+  const formatSig = (comp: ComponentPromptSpec) => {
+    const head = comp.description ? `${comp.signature} — ${comp.description}` : comp.signature;
+    const props = Object.entries(comp.propDescriptions ?? {});
+    if (!props.length) return head;
+    return [
+      head,
+      ...props.map(([name, text]) => `  - ${name}: ${text.replace(/\s*\n\s*/g, " ").trim()}`),
+    ].join("\n");
+  };
 
   if (spec.componentGroups?.length) {
     const grouped = new Set<string>();

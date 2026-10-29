@@ -158,6 +158,26 @@ function unwrap(schema: unknown): unknown {
   return s;
 }
 
+/**
+ * Read a `.describe()` / metadata description from a field schema. The text may
+ * sit on the outer schema or on an inner one wrapped by optional/default/nullable
+ * (e.g. `z.string().describe("x").optional()`), so each wrapper layer is checked.
+ */
+function getFieldDescription(schema: unknown): string | undefined {
+  let s = schema;
+  while (s) {
+    const text = (s as { description?: unknown }).description;
+    if (typeof text === "string" && text.trim()) return text;
+    const def = getZodDef(s);
+    if (def?.type === "optional" || def?.type === "default" || def?.type === "nullable") {
+      s = def.innerType;
+    } else {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 function isArrayType(schema: unknown): boolean {
   const s = unwrap(schema);
   return getZodType(s) === "array";
@@ -322,9 +342,15 @@ function buildComponentSpecs(
   const specs: Record<string, ComponentPromptSpec> = {};
   for (const [name, def] of Object.entries(components)) {
     const fields = analyzeFields(def.props.shape, reg);
+    const propDescriptions: Record<string, string> = {};
+    for (const [prop, schema] of Object.entries(def.props.shape)) {
+      const text = getFieldDescription(schema);
+      if (text) propDescriptions[prop] = text;
+    }
     specs[name] = {
       signature: buildSignature(name, fields),
       description: def.description,
+      ...(Object.keys(propDescriptions).length ? { propDescriptions } : {}),
     };
   }
   return specs;

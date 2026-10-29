@@ -266,3 +266,56 @@ describe("assertV4Schema", () => {
     ).not.toThrow();
   });
 });
+
+// ─── prop descriptions (.describe()) ────────────────────────────────────────
+
+describe("prop descriptions in prompt", () => {
+  it("renders .describe() text under the component signature", () => {
+    const SpecialCard = defineComponent({
+      name: "SpecialCard",
+      props: z.object({
+        myProp: z.string().describe("Use this property for the headline"),
+        plain: z.number(),
+      }),
+      description: "A special card",
+      component: Dummy,
+    });
+    const prompt = createLibrary({ components: [SpecialCard], root: "SpecialCard" }).prompt();
+
+    expect(prompt).toContain("SpecialCard(myProp: string, plain: number) — A special card");
+    expect(prompt).toContain("  - myProp: Use this property for the headline");
+    expect(prompt).not.toContain("  - plain:");
+  });
+
+  it("finds descriptions placed before optional()/nullable()/default()", () => {
+    const Card = defineComponent({
+      name: "Card",
+      props: z.object({
+        a: z.string().describe("desc a").optional(),
+        b: z.string().describe("desc b").nullable(),
+        c: z.string().describe("desc c").default("x"),
+      }),
+      description: "Card",
+      component: Dummy,
+    });
+    const spec = createLibrary({ components: [Card], root: "Card" }).toSpec();
+
+    expect(spec.components.Card.propDescriptions).toEqual({
+      a: "desc a",
+      b: "desc b",
+      c: "desc c",
+    });
+  });
+
+  it("leaves output unchanged when no props are described", () => {
+    const Button = defineComponent({
+      name: "Button",
+      props: z.object({ label: z.string() }),
+      description: "A button",
+      component: Dummy,
+    });
+    const spec = createLibrary({ components: [Button], root: "Button" }).toSpec();
+
+    expect(spec.components.Button.propDescriptions).toBeUndefined();
+  });
+});
